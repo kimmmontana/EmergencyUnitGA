@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import random
 import logging
 
-logging.basicConfig(level=logging.WARNING, filename="algo.log", filemode="w", format= "%(message)s")
+logging.basicConfig(level=logging.INFO, filename="algo.log", filemode="w", format= "%(message)s")
 
 def load_locations():
     city = np.array([
@@ -43,16 +44,26 @@ def distance_of(non_proposed, proposed, fire_freq, city):
     w = fire_freq
     return w * np.sqrt((xn - xfs)**2 + (yn - yfs)**2)
 
-def init_population(population_size, city):
+def init_population(city):
     return np.random.permutation(city.size)
 
-def truncation_selection(population, proportion, city):
-    sorted_population = sorted(population, key=lambda loc: cost_of(loc, city))
-    N = int(len(population) * proportion)
-    return sorted_population[:N], N
+def tournament_selection(population, city,  tournament_size):
+    
+    tournament = random.sample(list(population),tournament_size)
+    best_individual = min(tournament, key=lambda loc: cost_of(loc, city))
 
-def crossover(parents, city, N):
+    return best_individual
+
+def crossover(parent1, parent2, city):
     children = []
+
+    x1, y1 = coord_of(parent1, city)
+    x2, y2 = coord_of(parent2, city)
+    child = [x1 if np.random.rand() > 0.5 else y1,
+            x2 if np.random.rand() > 0.5 else y2]
+    xc, yc = child
+    return np.ravel_multi_index((xc, yc), city.shape)
+    '''''
     for i in range(0, len(parents), 2):
         if i + 1 < len(parents):
             parent1, parent2 = parents[i], parents[i + 1]
@@ -65,8 +76,15 @@ def crossover(parents, city, N):
             children.append(np.ravel_multi_index((xc, yc), city.shape))
             logging.warning(f"child: {children}")
     return np.array(children)
+    '''
 
-def mutate(children, mutation_rate, parents, population, N, city):
+def mutate(children, mutation_rate, city):
+    if np.random.rand() < mutation_rate:
+            print("mutated")
+            xc, yc = coord_of(children, city)
+            children = np.ravel_multi_index((yc, xc), city.shape)
+    return children
+    '''''
     for i in range(len(children)):
         if np.random.rand() < mutation_rate:
             xc, yc = coord_of(children[i], city)
@@ -75,14 +93,16 @@ def mutate(children, mutation_rate, parents, population, N, city):
     new_population = np.concatenate((children, parents, population[N:]))
     sorted_population = sorted(new_population, key=lambda loc: cost_of(loc, city))
     return np.array(sorted_population[:len(population)])
+    '''
 
 def emergency_response_unit_locator():
+    gens = [0]
     city = load_locations()
-    population = init_population(1000, city)
+    population = init_population(city)
     print(population)
     init_value = population[0]
-
-    gens = [0]
+    
+    
     costs = [cost_of(init_value, city)]
     x, y = coord_of(init_value, city)
     coords = [f'({x}, {y})']
@@ -92,16 +112,18 @@ def emergency_response_unit_locator():
 
     print(f'INITIAL COORDS: ({x}, {y})')
     print(f'INITIAL COST: {costs[0]:.2f}')
+    
+    parent1 = tournament_selection(population, city, 3)
 
-    for generation in range(1, 99):
-        parents, N = truncation_selection(population, 0.90, city)
-        logging.warning(f"parents:{parents}, {N}")
-        children = crossover(parents, city, N)
-        logging.warning(f"children:{children}, {N}")
-        population = mutate(children, 0.2, parents, population, N, city)
+    for generation in range(1, 100):
+        parent2 = tournament_selection(population, city, 3)
+        children = crossover(parent1, parent2, city)
+        mutated_indiv = mutate(children,0.2,city)
+        best_individual = min(parent1,parent2,children,mutated_indiv, key=lambda loc: cost_of(loc, city))
+        parent1 = best_individual
 
-        loc_of_best = population[0]
-        cost_of_best = cost_of(loc_of_best, city)
+        loc_of_best = parent1
+        cost_of_best = cost_of(parent1, city)
         x, y = coord_of(loc_of_best, city)
         response_time_of_best = response_time_of(loc_of_best, city)
 
@@ -114,7 +136,7 @@ def emergency_response_unit_locator():
 
         xs.append(x)
         ys.append(y)
-
+        
         plt.subplot(2, 1, 1)
         plt.scatter(xs, ys, c='blue', marker='o')
         plt.grid(True)
@@ -130,8 +152,8 @@ def emergency_response_unit_locator():
         plt.title('Cost Value Per Generation (100 Generations)')
         plt.grid(True)
 
-        plt.pause(0.1)
-
+        plt.pause(0.001)
+        
     print(']')
     df = pd.DataFrame({
         'Generations': gens,
@@ -141,7 +163,7 @@ def emergency_response_unit_locator():
     })
     print(df.to_string())
 
-    plt.show()
+    #plt.show()
 
 if __name__ == "__main__":
     emergency_response_unit_locator()
