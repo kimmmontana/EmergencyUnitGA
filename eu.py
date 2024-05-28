@@ -50,9 +50,9 @@ def init_population(city):
 def tournament_selection(population, city,  tournament_size):
     
     tournament = random.sample(list(population),tournament_size)
-    best_individual = min(tournament, key=lambda loc: cost_of(loc, city))
+    tournament_winner = min(tournament, key=lambda loc: cost_of(loc, city))
 
-    return best_individual
+    return tournament_winner
 
 def crossover(parent1, parent2, city):
     children = []
